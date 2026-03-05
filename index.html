@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tangkap Kurma - SMK Game</title>
+    <style>
+        :root {
+            --sky: #87CEEB;
+            --basket: #8B4513;
+            --date: #4B2C20;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--sky);
+            touch-action: none; /* Mencegah scroll saat main */
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F7FA 100%);
+        }
+
+        /* UI Stats */
+        .ui {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Keranjang */
+        #basket {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            width: 80px;
+            height: 50px;
+            background-color: var(--basket);
+            border-radius: 0 0 40px 40px;
+            transform: translateX(-50%);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        #basket::after {
+            content: '🧺';
+            font-size: 40px;
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Kurma */
+        .kurma {
+            position: absolute;
+            font-size: 30px;
+            user-select: none;
+        }
+
+        /* Modal Layar Akhir */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 100;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="ui">
+            <div class="stat-box">Skor: <span id="score">0</span></div>
+            <div class="stat-box">Waktu: <span id="timer">30</span>s</div>
+        </div>
+
+        <div id="basket"></div>
+    </div>
+
+    <div id="overlay">
+        <h1>Waktu Habis!</h1>
+        <p>Skor Akhir Kamu: <span id="final-score">0</span></p>
+        <button onclick="startGame()">Main Lagi</button>
+    </div>
+
+    <script>
+        const basket = document.getElementById('basket');
+        const container = document.getElementById('game-container');
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer');
+        const overlay = document.getElementById('overlay');
+        const finalScoreEl = document.getElementById('final-score');
+
+        let score = 0;
+        let timeLeft = 30;
+        let gameActive = false;
+        let gameTimer;
+        let kurmaInterval;
+
+        // Kontrol Geser (Touch & Mouse)
+        document.addEventListener('touchmove', (e) => {
+            if(!gameActive) return;
+            let touchX = e.touches[0].clientX;
+            moveBasket(touchX);
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if(!gameActive) return;
+            moveBasket(e.clientX);
+        });
+
+        function moveBasket(xPos) {
+            let containerWidth = container.offsetWidth;
+            let basketWidth = basket.offsetWidth;
+            
+            // Agar keranjang tidak keluar layar
+            if (xPos > basketWidth/2 && xPos < containerWidth - basketWidth/2) {
+                basket.style.left = xPos + 'px';
+            }
+        }
+
+        function createKurma() {
+            if(!gameActive) return;
+
+            const kurma = document.createElement('div');
+            kurma.className = 'kurma';
+            kurma.innerText = '🌴'; // Icon kurma
+            
+            let startPos = Math.random() * (container.offsetWidth - 30);
+            kurma.style.left = startPos + 'px';
+            kurma.style.top = '-50px';
+            
+            container.appendChild(kurma);
+
+            let fallSpeed = 3 + Math.random() * 4; // Kecepatan acak
+            let currentTop = -50;
+
+            let fallInterval = setInterval(() => {
+                if(!gameActive) {
+                    clearInterval(fallInterval);
+                    kurma.remove();
+                    return;
+                }
+
+                currentTop += fallSpeed;
+                kurma.style.top = currentTop + 'px';
+
+                // Deteksi Tabrakan (Collision)
+                let bRect = basket.getBoundingClientRect();
+                let kRect = kurma.getBoundingClientRect();
+
+                if (
+                    kRect.bottom >= bRect.top &&
+                    kRect.right >= bRect.left &&
+                    kRect.left <= bRect.right &&
+                    kRect.top <= bRect.bottom
+                ) {
+                    score += 10;
+                    scoreEl.innerText = score;
+                    clearInterval(fallInterval);
+                    kurma.remove();
+                }
+
+                // Hapus jika jatuh ke bawah
+                if (currentTop > window.innerHeight) {
+                    clearInterval(fallInterval);
+                    kurma.remove();
+                }
+            }, 20);
+        }
+
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            gameActive = true;
+            scoreEl.innerText = score;
+            timerEl.innerText = timeLeft;
+            overlay.style.display = 'none';
+
+            // Reset Interval
+            clearInterval(gameTimer);
+            clearInterval(kurmaInterval);
+
+            // Jalankan Timer
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                timerEl.innerText = timeLeft;
+                if(timeLeft <= 0) endGame();
+            }, 1000);
+
+            // Munculkan Kurma tiap 800ms
+            kurmaInterval = setInterval(createKurma, 800);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(gameTimer);
+            clearInterval(kurmaInterval);
+            finalScoreEl.innerText = score;
+            overlay.style.display = 'flex';
+        }
+
+        // Mulai game saat loading selesai
+        window.onload = startGame;
+    </script>
+</body>
+</html>
+index.html
